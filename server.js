@@ -13,4 +13,5 @@ app.use("/client", clientRoutes);
 const purchaseRoutes = require("./src/routes/purchase.routes");
 app.use("/purchase", purchaseRoutes);
 
-app.listen(4000, () => console.log("VISE API running on port 4000"));
+app.listen(4000, "0.0.0.0", () => console.log("VISE API running on port 4000"));
+//app.listen(4000, () => console.log("VISE API running on port 4000"));
