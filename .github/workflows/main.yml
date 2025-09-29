@@ -5,7 +5,7 @@ on:
       PORT:
         description: 'The port of your application'
         required: true
-        default: "3000"
+        default: "4000"
 jobs:
   test:
     runs-on: ubuntu-latest
