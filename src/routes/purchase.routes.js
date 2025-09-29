@@ -1,4 +1,3 @@
-// src/routes/purchase.routes.js
 const express = require("express");
 const router = express.Router();
 
@@ -9,20 +8,78 @@ const { clients } = require("./client.routes");
 function processPurchase(client, { amount, currency, purchaseDate, purchaseCountry }) {
   const card = client.cardType;
   const date = new Date(purchaseDate);
+  const day = date.getUTCDay(); // 0=Domingo ... 6=Sábado
   let discount = 0;
   let benefit = null;
 
-  // 1. Restricciones para Black y White
+  // ===== Restricciones =====
   const restrictedCountries = ["China", "Vietnam", "India", "Irán"];
   if (["Black", "White"].includes(card) && restrictedCountries.includes(purchaseCountry)) {
     return { error: `El cliente con tarjeta ${card} no puede realizar compras desde ${purchaseCountry}` };
   }
 
-  // 2. Beneficios según tarjeta
-  // Ejemplo: Descuento del 30% en compras los sábados
-  if (date.getUTCDay() === 6) { // 6 = Sábado en JS
-    discount = amount * 0.30;
-    benefit = "Sábado - Descuento 30%";
+  // ===== Beneficios =====
+  const isForeignPurchase = client.country !== purchaseCountry;
+
+  switch (card) {
+    case "Classic":
+      // No tiene beneficios
+      break;
+
+    case "Gold":
+      if ([1, 2, 3].includes(day) && amount > 100) { // Lun=1, Mar=2, Mié=3
+        discount = amount * 0.15;
+        benefit = "Lunes-Martes-Miércoles - Descuento 15%";
+      }
+      break;
+
+    case "Platinum":
+      if ([1, 2, 3].includes(day) && amount > 100) {
+        discount = amount * 0.20;
+        benefit = "Lunes-Martes-Miércoles - Descuento 20%";
+      }
+      if (day === 6 && amount > 200) { // Sábado
+        discount = amount * 0.30;
+        benefit = "Sábado - Descuento 30%";
+      }
+      if (isForeignPurchase) {
+        discount += amount * 0.05;
+        benefit = benefit ? `${benefit} + Exterior 5%` : "Exterior - Descuento 5%";
+      }
+      break;
+
+    case "Black":
+      if ([1, 2, 3].includes(day) && amount > 100) {
+        discount = amount * 0.25;
+        benefit = "Lunes-Martes-Miércoles - Descuento 25%";
+      }
+      if (day === 6 && amount > 200) {
+        discount = amount * 0.35;
+        benefit = "Sábado - Descuento 35%";
+      }
+      if (isForeignPurchase) {
+        discount += amount * 0.05;
+        benefit = benefit ? `${benefit} + Exterior 5%` : "Exterior - Descuento 5%";
+      }
+      break;
+
+    case "White":
+      if ([1, 2, 3, 4, 5].includes(day) && amount > 100) {
+        discount = amount * 0.25;
+        benefit = "Lunes a Viernes - Descuento 25%";
+      }
+      if ([0, 6].includes(day) && amount > 200) { // Sábado o Domingo
+        discount = amount * 0.35;
+        benefit = "Sábado-Domingo - Descuento 35%";
+      }
+      if (isForeignPurchase) {
+        discount += amount * 0.05;
+        benefit = benefit ? `${benefit} + Exterior 5%` : "Exterior - Descuento 5%";
+      }
+      break;
+
+    default:
+      break;
   }
 
   return {
@@ -32,7 +89,7 @@ function processPurchase(client, { amount, currency, purchaseDate, purchaseCount
       originalAmount: amount,
       discountApplied: discount,
       finalAmount: amount - discount,
-      benefit
+      benefit: benefit || "Sin beneficios aplicados"
     }
   };
 }
