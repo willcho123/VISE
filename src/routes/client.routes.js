@@ -1,124 +1,132 @@
 // src/routes/client.routes.js
 const express = require("express");
-const Joi = require("joi");
 const router = express.Router();
 
-// ===================
 // Datos simulados en memoria
-// ===================
 let clients = [];
 let nextId = 1;
 
-// ===================
-// Constantes de negocio
-// ===================
-const RESTRICTED_COUNTRIES = ["China", "Vietnam", "India", "Irán"];
-const CARD_TYPES = ["Classic", "Gold", "Platinum", "Black", "White"];
-
-// ===================
-// Validación con Joi
-// ===================
-const clientSchema = Joi.object({
-  name: Joi.string().trim().required(),
-  country: Joi.string().trim().required(),
-  monthlyIncome: Joi.number().required(),
-  viseClub: Joi.boolean().required(),
-  cardType: Joi.string().valid(...CARD_TYPES).required()
-});
-
-// ===================
-// Lógica de restricciones
-// ===================
+/**
+ * Verifica las restricciones según tipo de tarjeta y datos del cliente
+ * @param {Object} params
+ * @param {string} params.country
+ * @param {number} params.monthlyIncome
+ * @param {boolean} params.viseClub
+ * @param {string} params.cardType
+ * @returns {string|null} Mensaje de error o null si es válido
+ */
 function checkRestrictions({ country, monthlyIncome, viseClub, cardType }) {
-  switch (cardType) {
-    case "Classic":
-      return null;
+  const ct = String(cardType || "").trim();
 
-    case "Gold":
-      return monthlyIncome < 500 ? "Ingreso insuficiente para Gold" : null;
-
-    case "Platinum":
+  const restrictions = {
+    Classic: () => null,
+    Gold: () =>
+      monthlyIncome < 500
+        ? "Ingreso insuficiente para Gold"
+        : null,
+    Platinum: () => {
       if (monthlyIncome < 1000) return "Ingreso insuficiente para Platinum";
-      if (!viseClub) return "Debe estar suscrito a VISE CLUB para Platinum";
+      if (!viseClub)
+        return "El cliente no cumple con la suscripción VISE CLUB requerida para Platinum";
       return null;
-
-    case "Black":
-    case "White":
-      if (monthlyIncome < 2000) return `Ingreso insuficiente para ${cardType}`;
-      if (!viseClub) return `Debe estar suscrito a VISE CLUB para ${cardType}`;
-      if (RESTRICTED_COUNTRIES.includes(country)) {
+    },
+    Black: () => {
+      if (monthlyIncome < 2000) return "Ingreso insuficiente para Black";
+      if (!viseClub)
+        return "El cliente no cumple con la suscripción VISE CLUB requerida para Black";
+      if (["China", "Vietnam", "India", "Irán"].includes(country.trim())) {
         return "País restringido para esta tarjeta";
       }
       return null;
+    },
+    White: () => {
+      if (monthlyIncome < 2000) return "Ingreso insuficiente para White";
+      if (!viseClub)
+        return "El cliente no cumple con la suscripción VISE CLUB requerida para White";
+      if (["China", "Vietnam", "India", "Irán"].includes(country.trim())) {
+        return "País restringido para esta tarjeta";
+      }
+      return null;
+    }
+  };
 
-    default:
-      return "Tipo de tarjeta inválido";
-  }
+  return restrictions[ct] ? restrictions[ct]() : "Tipo de tarjeta inválido";
 }
 
-// ===================
-// Rutas
-// ===================
+/**
+ * Normaliza los valores recibidos en el body
+ */
+function normalizeInput({ monthlyIncome, viseClub, ...rest }) {
+  let income = monthlyIncome;
+  let club = viseClub;
 
-// POST /client - Registrar cliente
+  if (typeof income === "string") {
+    const parsed = Number(income);
+    if (!Number.isNaN(parsed)) income = parsed;
+  }
+
+  if (typeof club === "string") {
+    club = club.toLowerCase() === "true";
+  }
+
+  return { monthlyIncome: income, viseClub: club, ...rest };
+}
+
+// POST /client
 router.post("/", (req, res) => {
   console.log("POST /client body:", req.body);
 
-  // Validar entrada con Joi
-  const { error, value } = clientSchema.validate(req.body);
-  if (error) {
+  const { name, country, cardType } = req.body;
+  let { monthlyIncome, viseClub } = normalizeInput(req.body);
+
+  // Validar campos requeridos
+  if (!name || !country || cardType === undefined || monthlyIncome === undefined || viseClub === undefined) {
     return res.status(400).json({
-      success: false,
       status: "Rejected",
-      error: error.details[0].message
+      error: "Faltan campos requeridos: name, country, monthlyIncome, viseClub, cardType"
     });
   }
 
-  const { name, country, monthlyIncome, viseClub, cardType } = value;
-
-  // Validar restricciones de negocio
-  const restrictionError = checkRestrictions(value);
-  if (restrictionError) {
+  // Validaciones de tipo
+  if (typeof monthlyIncome !== "number") {
     return res.status(400).json({
-      success: false,
       status: "Rejected",
-      error: restrictionError
+      error: "monthlyIncome debe ser un número"
     });
+  }
+
+  if (typeof viseClub !== "boolean") {
+    return res.status(400).json({
+      status: "Rejected",
+      error: "viseClub debe ser boolean (true/false)"
+    });
+  }
+
+  // Restricciones por tarjeta
+  const error = checkRestrictions({ country, monthlyIncome, viseClub, cardType });
+  if (error) {
+    return res.status(400).json({ status: "Rejected", error });
   }
 
   // Crear cliente
   const client = {
     clientId: nextId++,
-    name,
-    country,
+    name: String(name).trim(),
+    country: String(country).trim(),
     monthlyIncome,
     viseClub,
-    cardType
+    cardType: String(cardType).trim()
   };
   clients.push(client);
 
   return res.json({
-    success: true,
+    clientId: client.clientId,
+    name: client.name,
+    cardType: client.cardType,
     status: "Registered",
-    data: {
-      clientId: client.clientId,
-      name: client.name,
-      cardType: client.cardType
-    },
     message: `Cliente apto para tarjeta ${client.cardType}`
   });
 });
 
-// GET /clients - Listar clientes
-router.get("/", (req, res) => {
-  return res.json({
-    success: true,
-    total: clients.length,
-    clients
-  });
-});
-
-// ===================
-// Exportación
-// ===================
+// Exportamos tanto el router como los clientes en memoria
 module.exports = { router, clients };
