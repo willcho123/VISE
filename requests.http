@@ -1,0 +1,72 @@
+### Registrar cliente válido
+POST http://localhost:4000/client
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "country": "USA",
+  "monthlyIncome": 1200,
+  "viseClub": true,
+  "cardType": "Platinum"
+}
+
+### Registrar cliente que falla VISE CLUB
+POST http://localhost:4000/client
+Content-Type: application/json
+
+{
+  "name": "Jane",
+  "country": "USA",
+  "monthlyIncome": 1200,
+  "viseClub": false,
+  "cardType": "Platinum"
+}
+
+
+### Hacer compra un sábado con beneficio
+POST http://localhost:4000/purchase
+Content-Type: application/json
+
+{
+  "clientId": 1,
+  "amount": 250,
+  "currency": "USD",
+  "purchaseDate": "2025-09-20T14:30:00Z",
+  "purchaseCountry": "France"
+}
+
+### Hacer compra restringida (ejemplo Black en China)
+POST http://localhost:4000/purchase
+Content-Type: application/json
+
+{
+  "clientId": 1,
+  "amount": 100,
+  "currency": "USD",
+  "purchaseDate": "2025-09-21T10:00:00Z",
+  "purchaseCountry": "China"
+}
+
+### Crear cliente
+POST http://localhost:4000/client
+Content-Type: application/json
+
+{
+  "name": "Andrés",
+  "country": "Colombia",
+  "monthlyIncome": 1500,
+  "viseClub": true,
+  "cardType": "Platinum"
+}
+
+### Crear compra
+POST http://localhost:4000/purchase
+Content-Type: application/json
+
+{
+  "clientId": 1,
+  "amount": 200,
+  "currency": "USD",
+  "purchaseDate": "2025-09-25T15:00:00Z",
+  "purchaseCountry": "Colombia"
+}
