@@ -1,4 +1,5 @@
 name: Build container and run VISE API testing
+
 on:
   workflow_dispatch:
     inputs:
@@ -6,23 +7,34 @@ on:
         description: 'The port of your application'
         required: true
         default: "4000"
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Setup docker
+
+      - name: Setup Docker
         uses: docker/setup-buildx-action@v3
-      - name: Build docker image
-        run: |
-          docker build -t vise-api:latest .
+
+      - name: Build Docker image
+        run: docker build -t vise-api:latest .
+
       - name: Run container
         run: |
           docker run -d -p ${{ github.event.inputs.PORT }}:${{ github.event.inputs.PORT }} --name vise-api vise-api:latest
-          sleep 5
+          sleep 15
+          docker ps -a
+          docker logs vise-api
+
+      - name: Check API availability
+        run: |
+          echo "Testing if API is up..."
+          curl -v http://localhost:${{ github.event.inputs.PORT }}/client || true
+
       - name: Setup hurl (API testing tool)
         uses: gacts/install-hurl@v1
-      - name: Test API
+
+      - name: Test API with Hurl
         run: hurl --variable host=http://localhost:${{ github.event.inputs.PORT }} --error-format long --test session.hurl
-      
