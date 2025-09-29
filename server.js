@@ -1,16 +1,22 @@
 // server.js
 const express = require("express");
-const bodyParser = require("body-parser");
 
 const app = express();
-app.use(bodyParser.json());
+
+// Middleware
+app.use(express.json()); // Ya no necesitas body-parser, Express lo trae integrado desde la v4.16
 
 // Importar rutas de clientes
-const { router: clientRoutes } = require("./src/routes/client.routes");
+const clientRoutes = require("./src/routes/client.routes");
 app.use("/client", clientRoutes);
 
 // Importar rutas de compras
 const purchaseRoutes = require("./src/routes/purchase.routes");
 app.use("/purchase", purchaseRoutes);
 
-app.listen(4000, () => console.log("VISE API running on port 4000"));
+// Configuración del puerto
+const PORT = process.env.PORT || 4000;
+
+app.listen(PORT, () => {
+  console.log(`VISE API running on port ${PORT}`);
+});
