@@ -1,132 +1,124 @@
 // src/routes/client.routes.js
 const express = require("express");
+const Joi = require("joi");
 const router = express.Router();
 
+// ===================
 // Datos simulados en memoria
+// ===================
 let clients = [];
 let nextId = 1;
 
-/**
- * Verifica las restricciones según tipo de tarjeta y datos del cliente
- * @param {Object} params
- * @param {string} params.country
- * @param {number} params.monthlyIncome
- * @param {boolean} params.viseClub
- * @param {string} params.cardType
- * @returns {string|null} Mensaje de error o null si es válido
- */
+// ===================
+// Constantes de negocio
+// ===================
+const RESTRICTED_COUNTRIES = ["China", "Vietnam", "India", "Irán"];
+const CARD_TYPES = ["Classic", "Gold", "Platinum", "Black", "White"];
+
+// ===================
+// Validación con Joi
+// ===================
+const clientSchema = Joi.object({
+  name: Joi.string().trim().required(),
+  country: Joi.string().trim().required(),
+  monthlyIncome: Joi.number().required(),
+  viseClub: Joi.boolean().required(),
+  cardType: Joi.string().valid(...CARD_TYPES).required()
+});
+
+// ===================
+// Lógica de restricciones
+// ===================
 function checkRestrictions({ country, monthlyIncome, viseClub, cardType }) {
-  const ct = String(cardType || "").trim();
+  switch (cardType) {
+    case "Classic":
+      return null;
 
-  const restrictions = {
-    Classic: () => null,
-    Gold: () =>
-      monthlyIncome < 500
-        ? "Ingreso insuficiente para Gold"
-        : null,
-    Platinum: () => {
+    case "Gold":
+      return monthlyIncome < 500 ? "Ingreso insuficiente para Gold" : null;
+
+    case "Platinum":
       if (monthlyIncome < 1000) return "Ingreso insuficiente para Platinum";
-      if (!viseClub)
-        return "El cliente no cumple con la suscripción VISE CLUB requerida para Platinum";
+      if (!viseClub) return "Debe estar suscrito a VISE CLUB para Platinum";
       return null;
-    },
-    Black: () => {
-      if (monthlyIncome < 2000) return "Ingreso insuficiente para Black";
-      if (!viseClub)
-        return "El cliente no cumple con la suscripción VISE CLUB requerida para Black";
-      if (["China", "Vietnam", "India", "Irán"].includes(country.trim())) {
+
+    case "Black":
+    case "White":
+      if (monthlyIncome < 2000) return `Ingreso insuficiente para ${cardType}`;
+      if (!viseClub) return `Debe estar suscrito a VISE CLUB para ${cardType}`;
+      if (RESTRICTED_COUNTRIES.includes(country)) {
         return "País restringido para esta tarjeta";
       }
       return null;
-    },
-    White: () => {
-      if (monthlyIncome < 2000) return "Ingreso insuficiente para White";
-      if (!viseClub)
-        return "El cliente no cumple con la suscripción VISE CLUB requerida para White";
-      if (["China", "Vietnam", "India", "Irán"].includes(country.trim())) {
-        return "País restringido para esta tarjeta";
-      }
-      return null;
-    }
-  };
 
-  return restrictions[ct] ? restrictions[ct]() : "Tipo de tarjeta inválido";
+    default:
+      return "Tipo de tarjeta inválido";
+  }
 }
 
-/**
- * Normaliza los valores recibidos en el body
- */
-function normalizeInput({ monthlyIncome, viseClub, ...rest }) {
-  let income = monthlyIncome;
-  let club = viseClub;
+// ===================
+// Rutas
+// ===================
 
-  if (typeof income === "string") {
-    const parsed = Number(income);
-    if (!Number.isNaN(parsed)) income = parsed;
-  }
-
-  if (typeof club === "string") {
-    club = club.toLowerCase() === "true";
-  }
-
-  return { monthlyIncome: income, viseClub: club, ...rest };
-}
-
-// POST /client
+// POST /client - Registrar cliente
 router.post("/", (req, res) => {
   console.log("POST /client body:", req.body);
 
-  const { name, country, cardType } = req.body;
-  let { monthlyIncome, viseClub } = normalizeInput(req.body);
-
-  // Validar campos requeridos
-  if (!name || !country || cardType === undefined || monthlyIncome === undefined || viseClub === undefined) {
-    return res.status(400).json({
-      status: "Rejected",
-      error: "Faltan campos requeridos: name, country, monthlyIncome, viseClub, cardType"
-    });
-  }
-
-  // Validaciones de tipo
-  if (typeof monthlyIncome !== "number") {
-    return res.status(400).json({
-      status: "Rejected",
-      error: "monthlyIncome debe ser un número"
-    });
-  }
-
-  if (typeof viseClub !== "boolean") {
-    return res.status(400).json({
-      status: "Rejected",
-      error: "viseClub debe ser boolean (true/false)"
-    });
-  }
-
-  // Restricciones por tarjeta
-  const error = checkRestrictions({ country, monthlyIncome, viseClub, cardType });
+  // Validar entrada con Joi
+  const { error, value } = clientSchema.validate(req.body);
   if (error) {
-    return res.status(400).json({ status: "Rejected", error });
+    return res.status(400).json({
+      success: false,
+      status: "Rejected",
+      error: error.details[0].message
+    });
+  }
+
+  const { name, country, monthlyIncome, viseClub, cardType } = value;
+
+  // Validar restricciones de negocio
+  const restrictionError = checkRestrictions(value);
+  if (restrictionError) {
+    return res.status(400).json({
+      success: false,
+      status: "Rejected",
+      error: restrictionError
+    });
   }
 
   // Crear cliente
   const client = {
     clientId: nextId++,
-    name: String(name).trim(),
-    country: String(country).trim(),
+    name,
+    country,
     monthlyIncome,
     viseClub,
-    cardType: String(cardType).trim()
+    cardType
   };
   clients.push(client);
 
   return res.json({
-    clientId: client.clientId,
-    name: client.name,
-    cardType: client.cardType,
+    success: true,
     status: "Registered",
+    data: {
+      clientId: client.clientId,
+      name: client.name,
+      cardType: client.cardType
+    },
     message: `Cliente apto para tarjeta ${client.cardType}`
   });
 });
 
-// Exportamos tanto el router como los clientes en memoria
+// GET /clients - Listar clientes
+router.get("/", (req, res) => {
+  return res.json({
+    success: true,
+    total: clients.length,
+    clients
+  });
+});
+
+// ===================
+// Exportación
+// ===================
 module.exports = { router, clients };
