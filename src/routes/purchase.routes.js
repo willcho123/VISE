@@ -1,10 +1,23 @@
+// src/routes/purchase.routes.js
 const express = require("express");
 const router = express.Router();
 
 // Importar clientes registrados desde client.routes.js
 const { clients } = require("./client.routes");
 
-// Función para aplicar beneficios y restricciones
+// Lista de países restringidos
+const RESTRICTED_COUNTRIES = ["China", "Vietnam", "India", "Irán"];
+
+/**
+ * Procesa una compra aplicando beneficios y restricciones
+ * @param {Object} client - Cliente que realiza la compra
+ * @param {Object} purchase - Datos de la compra
+ * @param {number} purchase.amount
+ * @param {string} purchase.currency
+ * @param {string|Date} purchase.purchaseDate
+ * @param {string} purchase.purchaseCountry
+ * @returns {Object} Resultado de la compra (aprobada o error)
+ */
 function processPurchase(client, { amount, currency, purchaseDate, purchaseCountry }) {
   const card = client.cardType;
   const date = new Date(purchaseDate);
@@ -13,13 +26,17 @@ function processPurchase(client, { amount, currency, purchaseDate, purchaseCount
   let benefit = null;
 
   // ===== Restricciones =====
-  const restrictedCountries = ["China", "Vietnam", "India", "Irán"];
-  if (["Black", "White"].includes(card) && restrictedCountries.includes(purchaseCountry)) {
+  if (["Black", "White"].includes(card) && RESTRICTED_COUNTRIES.includes(purchaseCountry)) {
     return { error: `El cliente con tarjeta ${card} no puede realizar compras desde ${purchaseCountry}` };
   }
 
   // ===== Beneficios =====
   const isForeignPurchase = client.country !== purchaseCountry;
+
+  const applyForeignBenefit = () => {
+    discount += amount * 0.05;
+    benefit = benefit ? `${benefit} + Exterior 5%` : "Exterior - Descuento 5%";
+  };
 
   switch (card) {
     case "Classic":
@@ -27,7 +44,7 @@ function processPurchase(client, { amount, currency, purchaseDate, purchaseCount
       break;
 
     case "Gold":
-      if ([1, 2, 3].includes(day) && amount > 100) { // Lun=1, Mar=2, Mié=3
+      if ([1, 2, 3].includes(day) && amount > 100) {
         discount = amount * 0.15;
         benefit = "Lunes-Martes-Miércoles - Descuento 15%";
       }
@@ -38,14 +55,11 @@ function processPurchase(client, { amount, currency, purchaseDate, purchaseCount
         discount = amount * 0.20;
         benefit = "Lunes-Martes-Miércoles - Descuento 20%";
       }
-      if (day === 6 && amount > 200) { // Sábado
+      if (day === 6 && amount > 200) {
         discount = amount * 0.30;
         benefit = "Sábado - Descuento 30%";
       }
-      if (isForeignPurchase) {
-        discount += amount * 0.05;
-        benefit = benefit ? `${benefit} + Exterior 5%` : "Exterior - Descuento 5%";
-      }
+      if (isForeignPurchase) applyForeignBenefit();
       break;
 
     case "Black":
@@ -57,10 +71,7 @@ function processPurchase(client, { amount, currency, purchaseDate, purchaseCount
         discount = amount * 0.35;
         benefit = "Sábado - Descuento 35%";
       }
-      if (isForeignPurchase) {
-        discount += amount * 0.05;
-        benefit = benefit ? `${benefit} + Exterior 5%` : "Exterior - Descuento 5%";
-      }
+      if (isForeignPurchase) applyForeignBenefit();
       break;
 
     case "White":
@@ -68,14 +79,11 @@ function processPurchase(client, { amount, currency, purchaseDate, purchaseCount
         discount = amount * 0.25;
         benefit = "Lunes a Viernes - Descuento 25%";
       }
-      if ([0, 6].includes(day) && amount > 200) { // Sábado o Domingo
+      if ([0, 6].includes(day) && amount > 200) {
         discount = amount * 0.35;
         benefit = "Sábado-Domingo - Descuento 35%";
       }
-      if (isForeignPurchase) {
-        discount += amount * 0.05;
-        benefit = benefit ? `${benefit} + Exterior 5%` : "Exterior - Descuento 5%";
-      }
+      if (isForeignPurchase) applyForeignBenefit();
       break;
 
     default:
@@ -89,6 +97,7 @@ function processPurchase(client, { amount, currency, purchaseDate, purchaseCount
       originalAmount: amount,
       discountApplied: discount,
       finalAmount: amount - discount,
+      currency,
       benefit: benefit || "Sin beneficios aplicados"
     }
   };
@@ -100,6 +109,7 @@ router.post("/", (req, res) => {
 
   const { clientId, amount, currency, purchaseDate, purchaseCountry } = req.body;
 
+  // Validación de campos requeridos
   if (!clientId || !amount || !currency || !purchaseDate || !purchaseCountry) {
     return res.status(400).json({
       status: "Rejected",
@@ -107,8 +117,8 @@ router.post("/", (req, res) => {
     });
   }
 
-  // Buscar cliente
-  const client = clients.find(c => c.clientId === clientId);
+  // Validación de cliente
+  const client = clients.find(c => c.clientId === Number(clientId));
   if (!client) {
     return res.status(404).json({
       status: "Rejected",
@@ -117,7 +127,7 @@ router.post("/", (req, res) => {
   }
 
   // Procesar compra
-  const result = processPurchase(client, { amount, currency, purchaseDate, purchaseCountry });
+  const result = processPurchase(client, { amount: Number(amount), currency, purchaseDate, purchaseCountry });
 
   if (result.error) {
     return res.status(400).json({

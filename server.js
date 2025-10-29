@@ -1,4 +1,4 @@
- import appInsights from "applicationinsights";
+import appInsights from "applicationinsights";
 
 // server.js
 const express = require("express");
@@ -15,21 +15,25 @@ app.use("/client", clientRoutes);
 const purchaseRoutes = require("./src/routes/purchase.routes");
 app.use("/purchase", purchaseRoutes);
 
-app.listen(4000, () => console.log("VISE API running on port 4000"));
+// Escucha en puerto 443 (tu requerimiento)
+app.listen(443, "0.0.0.0", () => console.log("VISE API running on port 443"));
 
 // Initialize using the connection string injected by Azure
- appInsights
- .setup(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING)
- .setAutoDependencyCorrelation(true)
- .setAutoCollectRequests(true)
- .setAutoCollectPerformance(true)
- .setAutoCollectExceptions(true)
- .setAutoCollectDependencies(true)
- .setAutoCollectConsole(true, true)
- .setUseDiskRetryCaching(true)
- .start();
- const client = appInsights.defaultClient;
- client.context.tags[client.context.keys.cloudRole] = "my-node-api"; //
+appInsights
+  .setup(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING)
+  .setAutoDependencyCorrelation(true)
+  .setAutoCollectRequests(true)
+  .setAutoCollectPerformance(true)
+  .setAutoCollectExceptions(true)
+  .setAutoCollectDependencies(true)
+  .setAutoCollectConsole(true, true)
+  .setUseDiskRetryCaching(true)
+  .start();
 
-  client.trackEvent({ name: "server_started", properties: { environment:
- "production" } });
+const client = appInsights.defaultClient;
+client.context.tags[client.context.keys.cloudRole] = "my-node-api";
+
+client.trackEvent({
+  name: "server_started",
+  properties: { environment: "production" },
+});

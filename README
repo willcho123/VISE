@@ -2,3 +2,15 @@ Andres felipe wilches salas
 Sebastian Alejandro Rincon Burgos
 Marlon Gerardo alarcon molina
 sergio sebastian divantoque quintero
+
+el objetivo de este proyecto es diseñar una API REST que registre clientes 
+y verifique si cumplen las restricciones para obtener un tipo de tarjeta
+ademas que procese compras aplicando las restricciones y los beneficios de cada tarjeta
+
+Explicacion 
+/client
+se implementan los endpoints para que estos reciban los datos del cliente y lo registren
+verificando las restricciones
+
+/purchase
+este recibe un clientId y aplica los beneficios y restricciones de la tarjeta de este cliente
