@@ -1,28 +1,26 @@
-// server.js
-const appInsights = require("applicationinsights");
-const express = require("express");
-const bodyParser = require("body-parser");
+import appInsights from "applicationinsights";
+import express from "express";
+import bodyParser from "body-parser";
 
 const app = express();
 app.use(bodyParser.json());
 
 // Importar rutas de clientes
-const { router: clientRoutes } = require("./src/routes/client.routes");
+import { router as clientRoutes } from "./src/routes/client.routes.js";
 app.use("/client", clientRoutes);
 
 // Importar rutas de compras
-const purchaseRoutes = require("./src/routes/purchase.routes");
+import purchaseRoutes from "./src/routes/purchase.routes.js";
 app.use("/purchase", purchaseRoutes);
 
-// 🔹 Compatibilidad Azure + Local
-// Azure asigna automáticamente process.env.PORT
+// 🔹 Puerto compatible (Azure usa process.env.PORT)
 const PORT = process.env.PORT || 4000;
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, () => {
   console.log(`✅ VISE API running on port ${PORT}`);
 });
 
-// 🔹 Application Insights para Azure Monitor
+// 🔹 Application Insights (solo si la variable existe)
 if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) {
   appInsights
     .setup(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING)
@@ -36,14 +34,9 @@ if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) {
     .start();
 
   const client = appInsights.defaultClient;
-  client.context.tags[client.context.keys.cloudRole] = "vise-api";
-
+  client.context.tags[client.context.keys.cloudRole] = "my-node-api";
   client.trackEvent({
     name: "server_started",
-    properties: { environment: process.env.NODE_ENV || "development" },
+    properties: { environment: "production" },
   });
-
-  console.log("🟢 Application Insights initialized");
-} else {
-  console.log("⚠️ Application Insights not configured (no connection string found)");
 }
