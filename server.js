@@ -1,6 +1,5 @@
-import appInsights from "applicationinsights";
-
 // server.js
+const appInsights = require("applicationinsights");
 const express = require("express");
 const bodyParser = require("body-parser");
 
@@ -15,25 +14,36 @@ app.use("/client", clientRoutes);
 const purchaseRoutes = require("./src/routes/purchase.routes");
 app.use("/purchase", purchaseRoutes);
 
-// Escucha en puerto 443 (tu requerimiento)
-app.listen(443, "0.0.0.0", () => console.log("VISE API running on port 443"));
+// 🔹 Compatibilidad Azure + Local
+// Azure asigna automáticamente process.env.PORT
+const PORT = process.env.PORT || 4000;
 
-// Initialize using the connection string injected by Azure
-appInsights
-  .setup(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING)
-  .setAutoDependencyCorrelation(true)
-  .setAutoCollectRequests(true)
-  .setAutoCollectPerformance(true)
-  .setAutoCollectExceptions(true)
-  .setAutoCollectDependencies(true)
-  .setAutoCollectConsole(true, true)
-  .setUseDiskRetryCaching(true)
-  .start();
-
-const client = appInsights.defaultClient;
-client.context.tags[client.context.keys.cloudRole] = "my-node-api";
-
-client.trackEvent({
-  name: "server_started",
-  properties: { environment: "production" },
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ VISE API running on port ${PORT}`);
 });
+
+// 🔹 Application Insights para Azure Monitor
+if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) {
+  appInsights
+    .setup(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING)
+    .setAutoDependencyCorrelation(true)
+    .setAutoCollectRequests(true)
+    .setAutoCollectPerformance(true)
+    .setAutoCollectExceptions(true)
+    .setAutoCollectDependencies(true)
+    .setAutoCollectConsole(true, true)
+    .setUseDiskRetryCaching(true)
+    .start();
+
+  const client = appInsights.defaultClient;
+  client.context.tags[client.context.keys.cloudRole] = "vise-api";
+
+  client.trackEvent({
+    name: "server_started",
+    properties: { environment: process.env.NODE_ENV || "development" },
+  });
+
+  console.log("🟢 Application Insights initialized");
+} else {
+  console.log("⚠️ Application Insights not configured (no connection string found)");
+}
