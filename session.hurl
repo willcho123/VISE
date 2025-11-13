@@ -16,4 +16,4 @@ classic_id: jsonpath "$['clientId']"
 jsonpath "$.status" == "Registered"
 jsonpath "$.cardType" == "Classic"
 
-...
+
