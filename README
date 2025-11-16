@@ -7,6 +7,19 @@ el objetivo de este proyecto es diseñar una API REST que registre clientes
 y verifique si cumplen las restricciones para obtener un tipo de tarjeta
 ademas que procese compras aplicando las restricciones y los beneficios de cada tarjeta
 
+
+COMO USAR EL PROYECTO
+1. MPLEMENTAR LAS npm install de todos los const @.....
+   ejemplo : npm install @opentelemetry/sdk-trace-base
+
+2. EN LA TERMINAL USAR NPM START 
+
+3. En request.http estan las consultas solo es dar en Send request para que se generen, hay casos positivos
+   como negativos para un amplio panorama de pruebas
+
+4. Finalmente en Axiom se veran las metricas y las consultas incluyendo las que no pasaron
+
+
 Explicacion 
 /client
 se implementan los endpoints para que estos reciban los datos del cliente y lo registren
